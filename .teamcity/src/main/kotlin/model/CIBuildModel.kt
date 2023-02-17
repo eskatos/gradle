@@ -58,7 +58,7 @@ data class CIBuildModel(
         Stage(
             StageName.QUICK_FEEDBACK_LINUX_ONLY,
             specificBuilds = listOf(
-                SpecificBuild.CompileAll, SpecificBuild.SanityCheck
+                SpecificBuild.CompileAll, SpecificBuild.CompileAllNG, SpecificBuild.SanityCheck
             ),
             functionalTests = listOf(
                 TestCoverage(1, TestType.quick, Os.LINUX, JvmCategory.MAX_VERSION, expectedBucketNumber = DEFAULT_LINUX_FUNCTIONAL_TEST_BUCKET_SIZE)
@@ -346,9 +346,15 @@ const val GRADLE_BUILD_SMOKE_TEST_NAME = "gradleBuildSmokeTest"
 enum class SpecificBuild {
     CompileAll {
         override fun create(model: CIBuildModel, stage: Stage): BaseGradleBuildType {
-            return CompileAll(model, stage)
+            return CompileAll(model, stage, false)
         }
     },
+    CompileAllNG {
+        override fun create(model: CIBuildModel, stage: Stage): BaseGradleBuildType {
+            return CompileAll(model, stage, true)
+        }
+    },
+
     SanityCheck {
         override fun create(model: CIBuildModel, stage: Stage): BaseGradleBuildType {
             return SanityCheck(model, stage)
