@@ -13,6 +13,7 @@ import configurations.BaseGradleBuildType
 import configurations.BuildDistributions
 import configurations.CheckLinks
 import configurations.CompileAll
+import configurations.CompileAll.BuildCacheType.BUILD_CACHE_NG
 import configurations.DocsTestType
 import configurations.DocsTestType.CONFIG_CACHE_DISABLED
 import configurations.DocsTestType.CONFIG_CACHE_ENABLED
@@ -58,7 +59,7 @@ data class CIBuildModel(
         Stage(
             StageName.QUICK_FEEDBACK_LINUX_ONLY,
             specificBuilds = listOf(
-                SpecificBuild.CompileAll, SpecificBuild.CompileAllNG, SpecificBuild.SanityCheck
+                SpecificBuild.CompileAll, SpecificBuild.CompileAllBuildCacheNG, SpecificBuild.SanityCheck
             ),
             functionalTests = listOf(
                 TestCoverage(1, TestType.quick, Os.LINUX, JvmCategory.MAX_VERSION, expectedBucketNumber = DEFAULT_LINUX_FUNCTIONAL_TEST_BUCKET_SIZE)
@@ -346,15 +347,14 @@ const val GRADLE_BUILD_SMOKE_TEST_NAME = "gradleBuildSmokeTest"
 enum class SpecificBuild {
     CompileAll {
         override fun create(model: CIBuildModel, stage: Stage): BaseGradleBuildType {
-            return CompileAll(model, stage, false)
+            return CompileAll(model, stage)
         }
     },
-    CompileAllNG {
+    CompileAllBuildCacheNG {
         override fun create(model: CIBuildModel, stage: Stage): BaseGradleBuildType {
-            return CompileAll(model, stage, true)
+            return CompileAll(model, stage, BUILD_CACHE_NG)
         }
     },
-
     SanityCheck {
         override fun create(model: CIBuildModel, stage: Stage): BaseGradleBuildType {
             return SanityCheck(model, stage)
