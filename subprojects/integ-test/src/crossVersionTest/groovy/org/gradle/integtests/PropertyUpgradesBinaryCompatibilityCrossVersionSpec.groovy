@@ -15,7 +15,7 @@
  */
 package org.gradle.integtests
 
-import groovy.test.NotYetImplemented
+
 import org.gradle.api.plugins.quality.Checkstyle
 import org.gradle.integtests.fixtures.TargetVersions
 
@@ -27,14 +27,14 @@ class PropertyUpgradesBinaryCompatibilityCrossVersionSpec extends AbstractProper
         return [Checkstyle]
     }
 
-    @NotYetImplemented
     def "can use upgraded Checkstyle in a Groovy plugin compiled with a previous Gradle version"() {
         given:
-        testDirectory.file("gradle.properties") << "\norg.gradle.unsafe.configuration-cache=true\n"
         prepareGroovyPluginTest """
             project.tasks.register("myCheckstyle", Checkstyle) {
                 maxErrors = 1
-                int currentMaxErrors = maxErrors
+                // int currentMaxErrors = maxErrors doesn't work yet
+                int currentMaxErrors = it.maxErrors
+                assert currentMaxErrors == 1
             }
         """
 

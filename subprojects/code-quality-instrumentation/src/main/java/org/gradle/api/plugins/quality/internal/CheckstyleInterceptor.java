@@ -26,7 +26,6 @@ import org.gradle.internal.instrumentation.api.annotations.SpecificJvmCallInterc
 
 @SuppressWarnings("NewMethodNamingConvention")
 @SpecificJvmCallInterceptors(generatedClassName = InterceptorDeclaration.JVM_BYTECODE_GENERATED_CLASS_NAME_FOR_CODE_QUALITY)
-@SpecificGroovyCallInterceptors(generatedClassName = InterceptorDeclaration.GROOVY_INTERCEPTORS_GENERATED_CLASS_NAME_FOR_CODE_QUALITY)
 public class CheckstyleInterceptor {
 
     @InterceptCalls
@@ -39,5 +38,15 @@ public class CheckstyleInterceptor {
     @CallableKind.InstanceMethod
     public static void intercept_setMaxErrors(@ParameterKind.Receiver Checkstyle self, int value) {
         self.getMaxErrors().set(value);
+    }
+
+    @SpecificGroovyCallInterceptors(generatedClassName = InterceptorDeclaration.GROOVY_INTERCEPTORS_GENERATED_CLASS_NAME_FOR_CODE_QUALITY)
+    public static class CheckstyleGroovyInterceptor {
+
+        @InterceptCalls
+        @CallableKind.GroovyProperty
+        public static int intercept_maxErrors(@ParameterKind.Receiver Checkstyle self) {
+            return self.getMaxErrors().getOrElse(0);
+        }
     }
 }
