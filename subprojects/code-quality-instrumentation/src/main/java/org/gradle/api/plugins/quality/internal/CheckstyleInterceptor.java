@@ -17,7 +17,6 @@
 package org.gradle.api.plugins.quality.internal;
 
 import org.gradle.api.plugins.quality.Checkstyle;
-import org.gradle.api.provider.Property;
 import org.gradle.internal.classpath.declarations.InterceptorDeclaration;
 import org.gradle.internal.instrumentation.api.annotations.CallableKind;
 import org.gradle.internal.instrumentation.api.annotations.InterceptCalls;
@@ -25,36 +24,20 @@ import org.gradle.internal.instrumentation.api.annotations.ParameterKind;
 import org.gradle.internal.instrumentation.api.annotations.SpecificGroovyCallInterceptors;
 import org.gradle.internal.instrumentation.api.annotations.SpecificJvmCallInterceptors;
 
-import java.lang.reflect.InvocationTargetException;
-
 @SuppressWarnings("NewMethodNamingConvention")
 @SpecificJvmCallInterceptors(generatedClassName = InterceptorDeclaration.JVM_BYTECODE_GENERATED_CLASS_NAME_FOR_CODE_QUALITY)
 @SpecificGroovyCallInterceptors(generatedClassName = InterceptorDeclaration.GROOVY_INTERCEPTORS_GENERATED_CLASS_NAME_FOR_CODE_QUALITY)
 public class CheckstyleInterceptor {
 
     @InterceptCalls
-    @SuppressWarnings("unchecked")
     @CallableKind.InstanceMethod
     public static int intercept_getMaxErrors(@ParameterKind.Receiver Checkstyle self) {
-        // return self.getMaxErrors().getOrElse(0);
-        try {
-            Property<Integer> property = (Property<Integer>) self.getClass().getMethod("getMaxErrors").invoke(self);
-            return property.getOrElse(0);
-        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-            throw new RuntimeException(e);
-        }
+        return self.getMaxErrors().getOrElse(0);
     }
 
     @InterceptCalls
-    @SuppressWarnings("unchecked")
     @CallableKind.InstanceMethod
     public static void intercept_setMaxErrors(@ParameterKind.Receiver Checkstyle self, int value) {
-        // self.getMaxErrors().set(value);
-        try {
-            Property<Integer> property = (Property<Integer>) self.getClass().getMethod("getMaxErrors").invoke(self);
-            property.set(value);
-        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-            throw new RuntimeException(e);
-        }
+        self.getMaxErrors().set(value);
     }
 }
