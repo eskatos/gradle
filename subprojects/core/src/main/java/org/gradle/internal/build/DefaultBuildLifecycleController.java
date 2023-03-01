@@ -62,6 +62,7 @@ public class DefaultBuildLifecycleController implements BuildLifecycleController
     private final StateTransitionController<State> state;
     private final GradleInternal gradle;
     private boolean hasTasks;
+    private boolean hasFiredBeforeModelDiscarded;
 
     public DefaultBuildLifecycleController(
         GradleInternal gradle,
@@ -128,7 +129,12 @@ public class DefaultBuildLifecycleController implements BuildLifecycleController
 
     @Override
     public ExecutionResult<Void> beforeModelDiscarded(boolean failed) {
-        return ExecutionResult.maybeFailing(() -> buildModelLifecycleListener.beforeModelDiscarded(gradle, failed));
+        if (hasFiredBeforeModelDiscarded) {
+            return ExecutionResult.succeeded();
+        } else {
+            hasFiredBeforeModelDiscarded = true;
+            return ExecutionResult.maybeFailing(() -> buildModelLifecycleListener.beforeModelDiscarded(gradle, failed));
+        }
     }
 
     @Override
