@@ -6,9 +6,11 @@ description = "A code quality instrumentation for property upgrades"
 
 dependencies {
     compileOnly(project(":core"))
+    compileOnly(project(":base-services"))
     compileOnly(project(":core-api"))
     compileOnly(project(":model-core"))
     compileOnly(project(":reporting"))
+    compileOnly(libs.groovy)
     implementation(project(":code-quality"))
 
     // Instrumentation dependencies

@@ -43,6 +43,7 @@ import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.SourceTask;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.VerificationTask;
+import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty;
 import org.gradle.jvm.toolchain.JavaLauncher;
 import org.gradle.jvm.toolchain.JavaToolchainService;
 import org.gradle.jvm.toolchain.internal.CurrentJvmToolchainSpec;
@@ -363,6 +364,7 @@ public abstract class Checkstyle extends SourceTask implements VerificationTask,
      * @return the maximum number of errors allowed
      * @since 3.4
      */
+    @UpgradedProperty
     @Input
     public abstract Property<Integer> getMaxErrors();
 
