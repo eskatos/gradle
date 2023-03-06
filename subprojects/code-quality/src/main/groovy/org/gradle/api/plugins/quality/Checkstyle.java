@@ -364,8 +364,8 @@ public abstract class Checkstyle extends SourceTask implements VerificationTask,
      * @return the maximum number of errors allowed
      * @since 3.4
      */
-    @UpgradedProperty
     @Input
+    @UpgradedProperty(originalType = int.class)
     public abstract Property<Integer> getMaxErrors();
 
     /**

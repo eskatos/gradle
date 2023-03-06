@@ -24,3 +24,11 @@ tasks.named<JavaCompile>("compileJava") {
     // Without this, javac will complain about unclaimed annotations
     options.compilerArgs.add("-Xlint:-processing")
 }
+
+java.toolchain.implementation.value(null as JvmImplementation?)
+java.toolchain.vendor.value(null as JvmVendorSpec?)
+java.toolchain.languageVersion.value(null as JavaLanguageVersion?)
+
+tasks.withType(JavaCompile::class.java) {
+    options.isFork = false
+}
