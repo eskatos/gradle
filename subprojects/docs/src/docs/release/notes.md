@@ -50,7 +50,12 @@ Example:
 ADD RELEASE FEATURES BELOW
 vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv -->
 
+### General Improvements
 
+#### Dependency verification keys stripping
+
+PGP keys for dependency verification downloaded from key servers are now stripped to contain only necessary data.
+This feature can significantly reduce keyrings size.
 
 <!-- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ADD RELEASE FEATURES ABOVE
@@ -59,6 +64,7 @@ ADD RELEASE FEATURES ABOVE
 -->
 
 ## Promoted features
+
 Promoted features are features that were incubating in previous versions of Gradle but are now supported and subject to backwards compatibility.
 See the User Manual section on the “[Feature Lifecycle](userguide/feature_lifecycle.html)” for more information.
 
