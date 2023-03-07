@@ -28,26 +28,30 @@ import org.gradle.internal.instrumentation.model.CallableInfoImpl;
 import org.gradle.internal.instrumentation.model.CallableKindInfo;
 import org.gradle.internal.instrumentation.model.ImplementationInfoImpl;
 import org.gradle.internal.instrumentation.model.ParameterInfo;
+import org.gradle.internal.instrumentation.model.ParameterInfoImpl;
 import org.gradle.internal.instrumentation.model.RequestExtra;
-import org.gradle.internal.instrumentation.processor.codegen.TypeUtils;
 import org.gradle.internal.instrumentation.processor.extensibility.AnnotatedMethodReaderExtension;
 import org.gradle.internal.instrumentation.processor.extensibility.ClassLevelAnnotationsContributor;
 import org.gradle.internal.instrumentation.processor.modelreader.api.CallInterceptionRequestReader.Result.InvalidRequest;
 import org.gradle.internal.instrumentation.processor.modelreader.api.CallInterceptionRequestReader.Result.Success;
 import org.gradle.internal.instrumentation.processor.modelreader.impl.AnnotationUtils;
+import org.jetbrains.annotations.NotNull;
 import org.objectweb.asm.Type;
 
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeMirror;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static org.gradle.internal.instrumentation.processor.modelreader.impl.TypeUtils.extractMethodDescriptor;
+import static org.gradle.internal.instrumentation.model.ParameterKindInfo.METHOD_PARAMETER;
 import static org.gradle.internal.instrumentation.processor.modelreader.impl.TypeUtils.extractType;
 
 public class UpgradePropertyInstrumentationExtension implements
@@ -59,6 +63,8 @@ public class UpgradePropertyInstrumentationExtension implements
     private static final Type PROPERTY = Type.getType(Property.class);
     private static final Type REGULAR_FILE_PROPERTY = Type.getType(RegularFileProperty.class);
     private static final Type DIRECTORY_PROPERTY = Type.getType(DirectoryProperty.class);
+    private static final Type DEFAULT_TYPE = Type.getType(UpgradedProperty.SameAsGenericType.class);
+    private static final String INTERCEPTOR_DECLARATION_CLASS_NAME = "org.gradle.internal.classpath.InterceptorDeclaration_JvmBytecodeImplCodeQuality2";
 
 //    @Override
 //    public InstrumentationCodeGenerator contributeCodeGenerator() {
@@ -86,71 +92,106 @@ public class UpgradePropertyInstrumentationExtension implements
 
     @Override
     public Collection<Result> readRequest(ExecutableElement input) {
-        // read the annotations
-        // produce the requests to intercept the property getter and setter (+ Groovy property access)
-        // the returned requests should reference non-existing methods as interceptor implementations
-        // like access_get_maxErrors and access_get_maxErrors
-        // and they also need to store the information that they need those methods to be generated
-        // (perhaps use the request extras)
         Optional<? extends AnnotationMirror> annotation = AnnotationUtils.findAnnotationMirror(input, UpgradedProperty.class);
         if (!annotation.isPresent()) {
             return Collections.emptySet();
         }
 
         try {
-            Type originalType = extractOriginalType(input);
-            List<RequestExtra> extras = new ArrayList<>();
-            extras.add(new RequestExtra.OriginatingElement(input));
-            extras.add(new RequestExtra.InterceptJvmCalls("org.gradle.internal.classpath.InterceptorDeclaration_JvmBytecodeImplCodeQuality2"));
-            CallInterceptionRequest request = new CallInterceptionRequestImpl(
-                extractCallableInfo(input, originalType),
-                extractImplementationInfo(input, originalType),
-                extras
-            );
-            return Collections.singletonList(new Success(request));
+            Type originalType = extractOriginalType(input, annotation.get());
+            CallInterceptionRequest getterRequest = createJvmGetterInterceptionRequest(input, originalType);
+            CallInterceptionRequest setterRequest = createJvmSetterInterceptionRequest(input, originalType);
+            return Arrays.asList(new Success(getterRequest), new Success(setterRequest));
         } catch (AnnotationReadFailure failure) {
             return Collections.singletonList(new InvalidRequest(failure.reason));
         }
     }
 
-    private Type extractOriginalType(ExecutableElement method) {
-//        Type returnType = extractReturnType(methodElement);
-//        if (returnType.equals(PROPERTY)) {
-//            return extractPropertyType((DeclaredType) methodElement.getReturnType());
-//        }
-//        throw new AnnotationReadFailure("Reading type: " + returnType + " is not implemented");
-        return Type.INT_TYPE;
+    private static Type extractOriginalType(ExecutableElement method, AnnotationMirror annotation) {
+        Optional<? extends AnnotationValue> typeMirrorOptional = AnnotationUtils.findAnnotationValue(annotation, "originalType");
+        if (!typeMirrorOptional.isPresent()) {
+            throw new AnnotationReadFailure("Can't read @UpgradedProperty#orignalType for " + method.getSimpleName());
+        }
+        TypeMirror typeMirror = (TypeMirror) typeMirrorOptional.get().getValue();
+        Type type = extractType(typeMirror);
+        if (type != DEFAULT_TYPE) {
+            return type;
+        }
+        return extractOriginalTypeFromGeneric(method, method.getReturnType());
     }
 
-    private static ImplementationInfoImpl extractImplementationInfo(ExecutableElement method, Type originalType) {
-        Type implementationOwner = extractType(method.getEnclosingElement().asType());
-        Type owner = extractType(method.getEnclosingElement().asType());
-        String implementationName = getGeneratedMethodName(method);
-        String implementationDescriptor = Type.getMethodDescriptor(originalType, owner);
-        return new ImplementationInfoImpl(implementationOwner, implementationName, implementationDescriptor);
+    private static Type extractOriginalTypeFromGeneric(ExecutableElement method, TypeMirror typeMirror) {
+        throw new AnnotationReadFailure("Reading generic types from lazy properties is not yet implemented, set originalType for now." + method.getSimpleName());
     }
 
-    private static String getGeneratedMethodName(ExecutableElement method) {
-        String property = method.getSimpleName().toString().replace("get", "");
-        property = Character.toLowerCase(property.charAt(0)) + property.substring(1);
-        return "access_get_" + property;
+    private static CallInterceptionRequest createJvmGetterInterceptionRequest(ExecutableElement method, Type originalType) {
+        List<RequestExtra> extras = getJvmRequestExtras(method);
+        return new CallInterceptionRequestImpl(
+            extractCallableInfo(method, originalType, Collections.emptyList()),
+            extractImplementationInfo(method, originalType, "get", Collections.emptyList()),
+            extras
+        );
     }
 
-    private static CallableInfo extractCallableInfo(ExecutableElement methodElement, Type originalType) {
+    private static CallInterceptionRequest createJvmSetterInterceptionRequest(ExecutableElement method, Type originalType) {
+        List<RequestExtra> extras = getJvmRequestExtras(method);
+        List<ParameterInfo> parameters = Collections.singletonList(new ParameterInfoImpl("arg0", originalType, METHOD_PARAMETER));
+        Type returnType = Type.VOID_TYPE;
+        return new CallInterceptionRequestImpl(
+            extractCallableInfo(method, returnType, parameters),
+            extractImplementationInfo(method, returnType, "set", parameters),
+            extras
+        );
+    }
+
+    @NotNull
+    private static List<RequestExtra> getJvmRequestExtras(ExecutableElement method) {
+        List<RequestExtra> extras = new ArrayList<>();
+        extras.add(new RequestExtra.OriginatingElement(method));
+        extras.add(new RequestExtra.InterceptJvmCalls(INTERCEPTOR_DECLARATION_CLASS_NAME));
+        return extras;
+    }
+
+    private static CallableInfo extractCallableInfo(ExecutableElement methodElement, Type returnType, List<ParameterInfo> parameter) {
         CallableKindInfo kindInfo = CallableKindInfo.INSTANCE_METHOD;
         Type owner = extractType(methodElement.getEnclosingElement().asType());
-        // TODO Handle for property and setter differently
         String callableName = methodElement.getSimpleName().toString();
-        // TODO handle setter differently
-        List<ParameterInfo> parameterInfos = Collections.emptyList();
-        return new CallableInfoImpl(kindInfo, owner, callableName, originalType, parameterInfos);
+        return new CallableInfoImpl(kindInfo, owner, callableName, returnType, parameter);
+    }
+
+    private static ImplementationInfoImpl extractImplementationInfo(ExecutableElement method, Type returnType, String methodPrefix, List<ParameterInfo> parameters) {
+        Type owner = extractType(method.getEnclosingElement().asType());
+        // TODO Fix once we generate a class
+        Type implementationOwner = Type.getObjectType(getGeneratedClassName(method.getEnclosingElement()));
+        String implementationName = getImplementationMethodName(method, methodPrefix);
+        String implementationDescriptor = Type.getMethodDescriptor(returnType, toArray(owner, parameters));
+        return new ImplementationInfoImpl(owner, implementationName, implementationDescriptor);
+    }
+
+    private static String getGeneratedClassName(Element originalType) {
+        return "org.gradle.internal.instrumentation." + originalType.getSimpleName() + "_Interceptor";
+    }
+
+    private static Type[] toArray(Type owner, List<ParameterInfo> parameters) {
+        Type[] array = new Type[1 + parameters.size()];
+        array[0] = owner;
+        int i = 1;
+        for (ParameterInfo parameter : parameters) {
+            array[i++] = parameter.getParameterType();
+        }
+        return array;
+    }
+
+    private static String getImplementationMethodName(ExecutableElement method, String methodPrefix) {
+        String property = method.getSimpleName().toString().replace("get", "");
+        property = Character.toLowerCase(property.charAt(0)) + property.substring(1);
+        return "access_" + methodPrefix + "_" + property;
     }
 
     @Override
     public Collection<Class<? extends Annotation>> contributeClassLevelAnnotationTypes() {
         return Collections.singletonList(UpgradedClassesRegistry.class);
     }
-
 
     // TODO Consolidate with AnnotationCallInterceptionRequestReaderImpl#Failure
     private static class AnnotationReadFailure extends RuntimeException {
