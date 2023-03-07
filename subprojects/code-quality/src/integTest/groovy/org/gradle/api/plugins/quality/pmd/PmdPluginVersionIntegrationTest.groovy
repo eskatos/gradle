@@ -36,6 +36,8 @@ class PmdPluginVersionIntegrationTest extends AbstractPmdPluginVersionIntegratio
 
             ${mavenCentralRepository()}
 
+            testing.suites.test.useJUnit()
+
             pmd {
                 toolVersion = '$version'
                 ${supportIncrementalAnalysis() ? "" : "incrementalAnalysis = false"}

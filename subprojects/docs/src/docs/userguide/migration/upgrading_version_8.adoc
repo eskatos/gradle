@@ -51,6 +51,96 @@ The following methods on `CompileOptions` are deprecated:
 
 Current usages of these methods should migrate to `link:{javadocPath}/org/gradle/api/tasks/compile/CompileOptions.html#getGeneratedSourceOutputDirectory--[DirectoryProperty getGeneratedSourceOutputDirectory()]`
 
+[[test_framework_implementation_dependencies]]
+==== Relying on automatic test framework implementation dependencies
+
+In some cases, Gradle will load JVM test framework dependencies from the Gradle distribution in order to
+execute tests. This existing behavior can lead to test framework dependency version conflicts on the test
+classpath. To avoid these conflicts, this behavior is deprecated and will be removed in Gradle 9.0.
+
+In order to prepare to for this change in behavior, either declare the required dependencies explicitly,
+or migrate to link:jvm_test_suite_plugin.html[Test Suites], where these dependencies are managed automatically.
+
+===== Test Suites
+
+If you are using test suites, this change will not affect you. The test framework dependencies are managed
+by the suite itself by automatically declaring the proper dependencies on the test runtime classpath.
+In order to minimally migrate to test suites, use the following code:
+
+=====
+[.multi-language-sample]
+======
+.build.gradle.kts
+[source,kotlin]
+----
+testing {
+    suites {
+        named<JvmTestSuite>("test") {
+            // If using JUnit 5
+            useJUnitJupiter()
+            // If using JUnit 4
+            useJUnit()
+        }
+    }
+}
+----
+======
+[.multi-language-sample]
+======
+.build.gradle
+[source,groovy]
+----
+testing {
+    suites {
+        test {
+            // If using JUnit 5
+            useJUnitJupiter()
+            // If using JUnit 4
+            useJUnit()
+        }
+    }
+}
+----
+======
+=====
+
+===== Manually declaring dependencies
+
+This change in behavior can also be mitigated without migrating to test suites. In this case, you must
+manually declare the proper dependencies on the test runtime classpath. If you are using JUnit 5, an explicit
+test runtime dependency on `org.junit.platform:junit-platform-launcher` is required. If you are using JUnit 4,
+an explicit test runtime dependency on `junit:junit` is required. Note, for JUnit 4, the test runtime dependency
+is only required if `junit` is not already declared as a `testImplementation` dependency or if JUnit 3 is used.
+
+=====
+[.multi-language-sample]
+======
+.build.gradle.kts
+[source,kotlin]
+----
+dependencies {
+    // If using JUnit 5
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    // If using JUnit 4
+    testRuntimeOnly("junit:junit:4.13.2")
+}
+----
+======
+[.multi-language-sample]
+======
+.build.gradle
+[source,groovy]
+----
+dependencies {
+    // If using JUnit 5
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    // If using JUnit 4
+    testRuntimeOnly("junit:junit:4.13.2")
+}
+----
+======
+=====
+
 [[changes_8.1]]
 == Upgrading from 8.0 and earlier
 

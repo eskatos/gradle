@@ -19,6 +19,7 @@ package org.gradle.testing.junitplatform
 import org.gradle.integtests.fixtures.AbstractIntegrationSpec
 import org.gradle.integtests.fixtures.DefaultTestExecutionResult
 
+import static org.gradle.testing.fixture.JUnitCoverage.LATEST_PLATFORM_VERSION
 import static org.hamcrest.CoreMatchers.containsString
 
 /**
@@ -64,6 +65,7 @@ class JUnitPlatformEnvironmentIntegrationTest extends AbstractIntegrationSpec {
         buildFile << """
             testing.suites.test.dependencies {
                 compileOnly 'org.junit.jupiter:junit-jupiter:${JUNIT_JUPITER_VERSION}'
+                runtimeOnly 'org.junit.platform:junit-platform-launcher:${LATEST_PLATFORM_VERSION}'
             }
         """
         file('src/test/java/org/example/ExampleTest.java') << """
@@ -118,6 +120,7 @@ class JUnitPlatformEnvironmentIntegrationTest extends AbstractIntegrationSpec {
         """)
 
         expect:
+        executer.expectDocumentedDeprecationWarning("The automatic loading of test framework implementation dependencies has been deprecated. This is scheduled to be removed in Gradle 9.0. Declare the desired test framework directly on the test suite or explicitly declare the test framework implementation dependencies on the test's runtime classpath. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#test_framework_implementation_dependencies")
         succeeds "test"
     }
 
