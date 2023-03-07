@@ -57,8 +57,6 @@ import java.util.stream.Stream;
 import static org.gradle.internal.classpath.MethodHandleUtils.findStaticOrThrowError;
 import static org.gradle.internal.classpath.MethodHandleUtils.lazyKotlinStaticDefaultHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static org.gradle.internal.classpath.InstrumentedUtil.findStaticOrThrowError;
-import static org.gradle.internal.classpath.InstrumentedUtil.kotlinDefaultMethodType;
 
 public class Instrumented {
     private static final Listener NO_OP = new Listener() {

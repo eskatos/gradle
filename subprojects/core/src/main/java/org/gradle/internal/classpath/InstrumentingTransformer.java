@@ -326,11 +326,11 @@ class InstrumentingTransformer implements CachedClasspathTransformer.Transform {
             this.className = owner.className;
             this.asNode = asNode;
             generatedInterceptors = InterceptorDeclaration.JVM_BYTECODE_GENERATED_CLASS_NAMES.stream()
-                .map(className -> newInterceptor(className, originalMethodVisitor, localVariablesSorter))
+                .map(className -> newInterceptor(className, methodVisitor))
                 .collect(toImmutableList());
         }
 
-        private static JvmBytecodeCallInterceptor newInterceptor(String className, MethodVisitor originalMethodVisitor, LocalVariablesSorterWithDroppedVariables localVariablesSorter) {
+        private static JvmBytecodeCallInterceptor newInterceptor(String className, MethodVisitor methodVisitor) {
             try {
                 return (JvmBytecodeCallInterceptor) Class.forName(className)
                     .getConstructor(MethodVisitor.class)
