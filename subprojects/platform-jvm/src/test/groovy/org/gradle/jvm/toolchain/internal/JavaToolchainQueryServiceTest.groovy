@@ -20,8 +20,10 @@ import org.gradle.api.GradleException
 import org.gradle.api.JavaVersion
 import org.gradle.api.internal.file.TestFiles
 import org.gradle.internal.jvm.Jvm
+import org.gradle.internal.jvm.inspection.JavaInstallationRegistry
 import org.gradle.internal.jvm.inspection.JvmInstallationMetadata
 import org.gradle.internal.jvm.inspection.JvmMetadataDetector
+import org.gradle.internal.jvm.inspection.JvmToolchainMetadata
 import org.gradle.internal.jvm.inspection.JvmVendor
 import org.gradle.internal.operations.BuildOperationProgressEventEmitter
 import org.gradle.internal.operations.TestBuildOperationExecutor
@@ -45,9 +47,7 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     def "can query for matching toolchain using version #versionToFind"() {
         given:
-        def registry = createInstallationRegistry(versionRange(8, 12))
-        def toolchainFactory = newToolchainFactory()
-        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        def queryService = setupInstallations(versionRange(8, 12))
 
         when:
         def filter = new DefaultToolchainSpec(TestUtil.objectFactory())
@@ -66,9 +66,7 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     def "uses most recent version of multiple matches for version #versionToFind"() {
         given:
-        def registry = createInstallationRegistry(["8.0", "8.0.242.hs-adpt", "7.9", "7.7", "14.0.2+12", "8.0.zzz.foo"])
-        def toolchainFactory = newToolchainFactory()
-        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        def queryService = setupInstallations(["8.0", "8.0.242.hs-adpt", "7.9", "7.7", "14.0.2+12", "8.0.zzz.foo"])
 
         when:
         def filter = new DefaultToolchainSpec(TestUtil.objectFactory())
@@ -89,9 +87,7 @@ class JavaToolchainQueryServiceTest extends Specification {
     @Issue("https://github.com/gradle/gradle/issues/17195")
     def "uses most recent version of multiple matches if version has a legacy format"() {
         given:
-        def registry = createDeterministicInstallationRegistry(["1.8.0_282", "1.8.0_292"])
-        def toolchainFactory = newToolchainFactory()
-        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        def queryService = setupInstallations(["1.8.0_282", "1.8.0_292"])
         def versionToFind = JavaLanguageVersion.of(8)
 
         when:
@@ -106,9 +102,7 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     def "uses j9 toolchain if requested"() {
         given:
-        def registry = createInstallationRegistry(["8.0", "8.0.242.hs-adpt", "7.9", "7.7", "14.0.2+12", "8.0.1.j9"])
-        def toolchainFactory = newToolchainFactory()
-        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        def queryService = setupInstallations(["8.0", "8.0.242.hs-adpt", "7.9", "7.7", "14.0.2+12", "8.0.1.j9"])
 
         when:
         def filter = new DefaultToolchainSpec(TestUtil.objectFactory())
@@ -123,9 +117,7 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     def "no preferred implementation if vendor-specific is requested"() {
         given:
-        def registry = createInstallationRegistry(["8.0.2.j9", "8.0.1.hs"])
-        def toolchainFactory = newToolchainFactory()
-        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        def queryService = setupInstallations(["8.0.2.j9", "8.0.1.hs"])
 
         when:
         def filter = new DefaultToolchainSpec(TestUtil.objectFactory())
@@ -139,21 +131,11 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     def "matches J9 toolchain via vendor"() {
         given:
-        def registry = createInstallationRegistry(["8.hs-amazon", "8.j9-international business machines corporation"])
-        def compilerFactory = Mock(JavaCompilerFactory)
-        def toolFactory = Mock(ToolchainToolFactory)
-        def eventEmitter = Stub(BuildOperationProgressEventEmitter)
-        def toolchainFactory = new JavaToolchainFactory(Mock(JvmMetadataDetector), compilerFactory, toolFactory, TestFiles.fileFactory(), eventEmitter) {
-            @Override
-            JavaToolchainInstantiationResult newInstance(InstallationLocation javaHome, JavaToolchainInput input, boolean isFallbackToolchain) {
-                String locationName = javaHome.location.name
-                def vendor = locationName.substring(5)
-                def metadata = newMetadata(new InstallationLocation(new File("/path/" + locationName), javaHome.source), "8", vendor)
-                return new JavaToolchainInstantiationResult(javaHome, metadata,
-                    new JavaToolchain(metadata, compilerFactory, toolFactory, TestFiles.fileFactory(), input, isFallbackToolchain, eventEmitter))
-            }
-        }
-        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        def queryService = setupInstallations(
+            ["8.hs-amazon", "8.j9-international business machines corporation"],
+            version -> version,
+            version -> version.substring(5)
+        )
 
         when:
         def filter = new DefaultToolchainSpec(TestUtil.objectFactory())
@@ -169,9 +151,7 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     def "ignores invalid toolchains when finding a matching one"() {
         given:
-        def registry = createInstallationRegistry(["8.0", "8.0.242.hs-adpt", "8.0.broken"])
-        def toolchainFactory = newToolchainFactory()
-        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        def queryService = setupInstallations(["8.0", "8.0.242.hs-adpt", "8.0.broken"])
 
         when:
         def filter = new DefaultToolchainSpec(TestUtil.objectFactory())
@@ -185,9 +165,7 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     def "returns failing provider if no toolchain matches"() {
         given:
-        def registry = createInstallationRegistry(["8", "9", "10"])
-        def toolchainFactory = newToolchainFactory()
-        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        def queryService = setupInstallations(["8", "9", "10"])
 
         when:
         def filter = new DefaultToolchainSpec(TestUtil.objectFactory())
@@ -203,9 +181,7 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     def "returns current JVM toolchain if requested"() {
         given:
-        def registry = createInstallationRegistry(versionRange(8, 19))
-        def toolchainFactory = newToolchainFactory()
-        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        def queryService = setupInstallations(versionRange(8, 19))
 
         when:
         def filter = new CurrentJvmToolchainSpec(TestUtil.objectFactory())
@@ -220,9 +196,7 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     def "returns fallback toolchain if filter is not configured"() {
         given:
-        def registry = createInstallationRegistry(versionRange(8, 19))
-        def toolchainFactory = newToolchainFactory()
-        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        def queryService = setupInstallations(versionRange(8, 19))
 
         when:
         def filter = new DefaultToolchainSpec(TestUtil.objectFactory())
@@ -237,9 +211,7 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     def "returns non-fallback current JVM toolchain for matching filter"() {
         given:
-        def registry = createInstallationRegistry(versionRange(8, 19))
-        def toolchainFactory = newToolchainFactory(javaHome -> javaHome.name, javaHome -> javaHome.name == "17")
-        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        def queryService = setupInstallations(versionRange(8, 19))
         def versionToFind = JavaLanguageVersion.of(17)
 
         when:
@@ -259,9 +231,7 @@ class JavaToolchainQueryServiceTest extends Specification {
      */
     def "returns fallback toolchain if filter is not configured even after returning current JVM"() {
         given:
-        def registry = createInstallationRegistry(versionRange(8, 19))
-        def toolchainFactory = newToolchainFactory()
-        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        def queryService = setupInstallations(versionRange(8, 19))
 
         when:
         def currentJvmFilter = new CurrentJvmToolchainSpec(TestUtil.objectFactory())
@@ -283,9 +253,7 @@ class JavaToolchainQueryServiceTest extends Specification {
      */
     def "returns non-fallback current JVM toolchain if requested even after returning fallback toolchain"() {
         given:
-        def registry = createInstallationRegistry(versionRange(8, 19))
-        def toolchainFactory = newToolchainFactory()
-        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        def queryService = setupInstallations(versionRange(8, 19))
 
         when:
         def fallbackFilter = new DefaultToolchainSpec(TestUtil.objectFactory())
@@ -303,20 +271,11 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     def "returns toolchain matching vendor"() {
         given:
-        def registry = createInstallationRegistry(["8-amazon", "8-bellsoft", "8-ibm", "8-zulu"])
-        def compilerFactory = Mock(JavaCompilerFactory)
-        def toolFactory = Mock(ToolchainToolFactory)
-        def eventEmitter = Stub(BuildOperationProgressEventEmitter)
-        def toolchainFactory = new JavaToolchainFactory(Mock(JvmMetadataDetector), compilerFactory, toolFactory, TestFiles.fileFactory(), eventEmitter) {
-            @Override
-            JavaToolchainInstantiationResult newInstance(InstallationLocation javaHome, JavaToolchainInput input, boolean isFallbackToolchain) {
-                def vendor = javaHome.location.name.substring(2)
-                def metadata = newMetadata(new InstallationLocation(new File("/path/8"), javaHome.source), "8", vendor)
-                return new JavaToolchainInstantiationResult(javaHome, metadata,
-                        new JavaToolchain(metadata, compilerFactory, toolFactory, TestFiles.fileFactory(), input, isFallbackToolchain, eventEmitter))
-            }
-        }
-        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        def queryService = setupInstallations(
+            ["8-amazon", "8-bellsoft", "8-ibm", "8-zulu"],
+            version -> version,
+            version -> version.substring(2)
+        )
 
         when:
         def filter = new DefaultToolchainSpec(TestUtil.objectFactory())
@@ -332,8 +291,9 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     def "install toolchain if no matching toolchain found"() {
         given:
-        def registry = createInstallationRegistry([])
-        def toolchainFactory = newToolchainFactory()
+        def detector = createMetadataDetector()
+        def registry = createInstallationRegistry([], detector)
+        def toolchainFactory = newToolchainFactory(detector)
         def installed = false
         def provisionService = new JavaToolchainProvisioningService() {
             @Override
@@ -365,8 +325,9 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     def "handles broken provisioned toolchain"() {
         given:
-        def registry = createInstallationRegistry([])
-        def toolchainFactory = newToolchainFactory()
+        def detector = createMetadataDetector()
+        def registry = createInstallationRegistry([], detector)
+        def toolchainFactory = newToolchainFactory(detector)
         def installed = false
         def provisionService = new JavaToolchainProvisioningService() {
             @Override
@@ -399,8 +360,9 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     def "provisioned toolchain is cached no re-request"() {
         given:
-        def registry = createInstallationRegistry([])
-        def toolchainFactory = newToolchainFactory()
+        def detector = createMetadataDetector()
+        def registry = createInstallationRegistry([], detector)
+        def toolchainFactory = newToolchainFactory(detector)
         int installed = 0
         def provisionService = new JavaToolchainProvisioningService() {
             @Override
@@ -434,9 +396,12 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     def "prefer version Gradle is running on as long as it is a match"() {
         given:
-        def registry = createDeterministicInstallationRegistry(["1.8.1", "1.8.2", "1.8.3"])
-        def toolchainFactory = newToolchainFactory(javaHome -> javaHome.name, javaHome -> javaHome.name == "1.8.2")
-        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        def queryService = setupInstallations(
+            ["1.8.1", "1.8.2", "1.8.3"],
+            version -> version,
+            version -> "",
+            javaHome -> javaHome.name == "1.8.2"
+        )
         def versionToFind = JavaLanguageVersion.of(8)
 
         when:
@@ -449,43 +414,67 @@ class JavaToolchainQueryServiceTest extends Specification {
         toolchain.getInstallationPath().toString() == systemSpecificAbsolutePath("/path/1.8.2")
     }
 
+    private JavaToolchainQueryService setupInstallations(
+        Collection<String> installations,
+        Function<String, String> getVersion = { it },
+        Function<String, String> getVendor = { "" },
+        Predicate<File> isCurrentJvm = { Jvm.current().javaHome.absoluteFile == it.absoluteFile }
+    ) {
+        def detector = createMetadataDetector(getVersion, getVendor)
+        def registry = createInstallationRegistry(installations, detector)
+        def toolchainFactory = newToolchainFactory(detector, isCurrentJvm)
+        def queryService = new JavaToolchainQueryService(registry, toolchainFactory, createProvisioningService(), TestUtil.objectFactory())
+        return queryService
+    }
+
     private JavaToolchainProvisioningService createProvisioningService() {
         def provisioningService = Mock(JavaToolchainProvisioningService)
         provisioningService.tryInstall(_ as JavaToolchainSpec) >> { throw new ToolchainDownloadFailedException("Configured toolchain download repositories can't match requested specification") }
         provisioningService
     }
 
-    private JavaToolchainFactory newToolchainFactory() {
-        Predicate<File> isCurrentJvm = { it -> Jvm.current().javaHome.absoluteFile == it.absoluteFile }
-        def getVersion = { File javaHome -> isCurrentJvm(javaHome) ? Jvm.current().javaVersion.toString() : javaHome.name }
-        newToolchainFactory(getVersion, isCurrentJvm)
-    }
-
-    private JavaToolchainFactory newToolchainFactory(Function<File, String> getVersion, Predicate<File> isCurrentJvm) {
+    private JavaToolchainFactory newToolchainFactory(
+        JvmMetadataDetector detector,
+        Predicate<File> isCurrentJvm = { Jvm.current().javaHome.absoluteFile == it.absoluteFile }
+    ) {
         def compilerFactory = Mock(JavaCompilerFactory)
         def toolFactory = Mock(ToolchainToolFactory)
         def eventEmitter = Stub(BuildOperationProgressEventEmitter)
-        def toolchainFactory = new JavaToolchainFactory(Mock(JvmMetadataDetector), compilerFactory, toolFactory, TestFiles.fileFactory(), eventEmitter) {
+        def toolchainFactory = new JavaToolchainFactory(detector, compilerFactory, toolFactory, TestFiles.fileFactory(), eventEmitter) {
             @Override
-            JavaToolchainInstantiationResult newInstance(InstallationLocation javaHome, JavaToolchainInput input, boolean isFallbackToolchain) {
-                def languageVersion = Jvm.current().javaHome == javaHome.location ? Jvm.current().javaVersion.toString() : getVersion.apply(javaHome.location)
-                def metadata = newMetadata(javaHome, languageVersion)
-                if (metadata.isValidInstallation()) {
-                    def toolchain = new JavaToolchain(metadata, compilerFactory, toolFactory, TestFiles.fileFactory(), input, isFallbackToolchain, eventEmitter) {
+            JavaToolchainInstantiationResult newInstance(JvmToolchainMetadata toolchainMetadata, JavaToolchainInput input, boolean isFallbackToolchain) {
+                if (toolchainMetadata.metadata.isValidInstallation()) {
+                    def toolchain = new JavaToolchain(toolchainMetadata.metadata, compilerFactory, toolFactory, TestFiles.fileFactory(), input, isFallbackToolchain, eventEmitter) {
                         @Override
                         boolean isCurrentJvm() {
-                            return isCurrentJvm.test(javaHome.location)
+                            return isCurrentJvm.test(toolchainMetadata.location.location)
                         }
                     }
-                    return new JavaToolchainInstantiationResult(javaHome, metadata, toolchain)
+                    return new JavaToolchainInstantiationResult(toolchainMetadata.location, toolchainMetadata.metadata, toolchain);
                 }
-                return new JavaToolchainInstantiationResult(javaHome, metadata)
+                return new JavaToolchainInstantiationResult(toolchainMetadata.location, toolchainMetadata.metadata);
             }
         }
         toolchainFactory
     }
 
-    def newMetadata(InstallationLocation javaHome, String languageVersion, String vendor = "") {
+    private def createMetadataDetector(
+        Function<String, String> getVersion = { it },
+        Function<String, String> getVendor = { "" }
+    ) {
+        return new JvmMetadataDetector() {
+            @Override
+            JvmInstallationMetadata getMetadata(InstallationLocation javaInstallationLocation) {
+                def languageVersion = Jvm.current().javaHome == javaInstallationLocation.location ?
+                    Jvm.current().javaVersion.toString() :
+                    getVersion.apply(javaInstallationLocation.location.name)
+                def vendor = getVendor.apply(javaInstallationLocation.location.name)
+                newMetadata(javaInstallationLocation, languageVersion, vendor)
+            }
+        }
+    }
+
+    def newMetadata(InstallationLocation javaHome, String languageVersion, String vendor) {
         def location = javaHome.location
         if (location.name.contains("broken")) {
             return JvmInstallationMetadata.failure(location, "errorMessage")
@@ -507,17 +496,23 @@ class JavaToolchainQueryServiceTest extends Specification {
         }
     }
 
-    static def createInstallationRegistry(List<String> installations) {
+    private def createInstallationRegistry(
+        Collection<String> installations,
+        JvmMetadataDetector detector
+    ) {
         def supplier = new InstallationSupplier() {
             @Override
             Set<InstallationLocation> get() {
                 installations.collect { new InstallationLocation(new File("/path/${it}").absoluteFile, "test") } as Set
             }
         }
-        def registry = new JavaInstallationRegistry([supplier], new TestBuildOperationExecutor(), OperatingSystem.current()) {
+        def registry = new JavaInstallationRegistry([supplier], detector, new TestBuildOperationExecutor(), OperatingSystem.current()) {
+            @Override
             boolean installationExists(InstallationLocation installationLocation) {
                 return true
             }
+
+            @Override
             boolean installationHasExecutable(InstallationLocation installationLocation) {
                 return true
             }
@@ -527,13 +522,5 @@ class JavaToolchainQueryServiceTest extends Specification {
 
     private static def versionRange(int begin, int end) {
         return (begin..end).collect { it.toString() }
-    }
-
-    def createDeterministicInstallationRegistry(List<String> installations) {
-        def installationLocations = installations.collect { new InstallationLocation(new File("/path/${it}").absoluteFile, "test") } as LinkedHashSet
-        Mock(JavaInstallationRegistry) {
-            listInstallations() >> installationLocations
-            installationExists(_ as InstallationLocation) >> true
-        }
     }
 }

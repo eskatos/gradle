@@ -27,7 +27,9 @@ import org.gradle.internal.deprecation.DeprecationLogger;
 import org.gradle.internal.deprecation.Documentation;
 import org.gradle.internal.deprecation.DocumentedFailure;
 import org.gradle.internal.jvm.Jvm;
+import org.gradle.internal.jvm.inspection.JavaInstallationRegistry;
 import org.gradle.internal.jvm.inspection.JvmInstallationMetadata;
+import org.gradle.internal.jvm.inspection.JvmToolchainMetadata;
 import org.gradle.internal.service.scopes.Scopes;
 import org.gradle.internal.service.scopes.ServiceScope;
 import org.gradle.jvm.toolchain.JavaToolchainSpec;
@@ -130,10 +132,12 @@ public class JavaToolchainQueryService {
             return asToolchainOrThrow(installation, spec);
         }
 
-        Optional<JavaToolchainInstantiationResult> detectedToolchain = registry.listInstallations().stream()
-                .map(javaHome -> asToolchain(javaHome, spec, false))
-                .filter(JavaToolchainMatcher.forInstantiationResult(spec))
-                .min(JavaToolchainComparator.forInstantiationResult());
+        Optional<JavaToolchainInstantiationResult> detectedToolchain = registry
+            .toolchains()
+            .stream()
+            .map(toolchainMetadata -> asToolchain(toolchainMetadata, spec, false))
+            .filter(JavaToolchainMatcher.forInstantiationResult(spec))
+            .min(JavaToolchainComparator.forInstantiationResult());
 
         if (detectedToolchain.isPresent()) {
             warnIfAutoProvisionedToolchainUsedWithoutRepositoryDefinitions(detectedToolchain.get());
@@ -176,6 +180,10 @@ public class JavaToolchainQueryService {
             throw new GradleException("Toolchain installation '" + javaHome.getLocation() + "' could not be probed: " + metadata.getErrorMessage(), metadata.getErrorCause());
         }
         return toolchain.get();
+    }
+
+    private JavaToolchainInstantiationResult asToolchain(JvmToolchainMetadata toolchainMetadata, JavaToolchainSpec spec, boolean isFallback) {
+        return toolchainFactory.newInstance(toolchainMetadata, new JavaToolchainInput(spec), isFallback);
     }
 
     private JavaToolchainInstantiationResult asToolchain(InstallationLocation javaHome, JavaToolchainSpec spec, boolean isFallback) {

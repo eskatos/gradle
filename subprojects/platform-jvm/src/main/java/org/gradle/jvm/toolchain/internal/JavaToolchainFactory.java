@@ -19,6 +19,7 @@ package org.gradle.jvm.toolchain.internal;
 import org.gradle.api.internal.file.FileFactory;
 import org.gradle.internal.jvm.inspection.JvmInstallationMetadata;
 import org.gradle.internal.jvm.inspection.JvmMetadataDetector;
+import org.gradle.internal.jvm.inspection.JvmToolchainMetadata;
 import org.gradle.internal.operations.BuildOperationProgressEventEmitter;
 
 import javax.inject.Inject;
@@ -46,13 +47,17 @@ public class JavaToolchainFactory {
         this.eventEmitter = eventEmitter;
     }
 
+    public JavaToolchainInstantiationResult newInstance(JvmToolchainMetadata toolchainMetadata, JavaToolchainInput input, boolean isFallbackToolchain) {
+        if (toolchainMetadata.metadata.isValidInstallation()) {
+            final JavaToolchain toolchain = new JavaToolchain(toolchainMetadata.metadata, compilerFactory, toolFactory, fileFactory, input, isFallbackToolchain, eventEmitter);
+            return new JavaToolchainInstantiationResult(toolchainMetadata.location, toolchainMetadata.metadata, toolchain);
+        }
+        return new JavaToolchainInstantiationResult(toolchainMetadata.location, toolchainMetadata.metadata);
+    }
+
     public JavaToolchainInstantiationResult newInstance(InstallationLocation javaHome, JavaToolchainInput input, boolean isFallbackToolchain) {
         final JvmInstallationMetadata metadata = detector.getMetadata(javaHome);
-        if (metadata.isValidInstallation()) {
-            final JavaToolchain toolchain = new JavaToolchain(metadata, compilerFactory, toolFactory, fileFactory, input, isFallbackToolchain, eventEmitter);
-            return new JavaToolchainInstantiationResult(javaHome, metadata, toolchain);
-        }
-        return new JavaToolchainInstantiationResult(javaHome, metadata);
+        return newInstance(new JvmToolchainMetadata(metadata, javaHome), input, isFallbackToolchain);
     }
 
 }
