@@ -22,23 +22,9 @@ import org.gradle.internal.instrumentation.api.annotations.CallableKind;
 import org.gradle.internal.instrumentation.api.annotations.InterceptCalls;
 import org.gradle.internal.instrumentation.api.annotations.ParameterKind;
 import org.gradle.internal.instrumentation.api.annotations.SpecificGroovyCallInterceptors;
-import org.gradle.internal.instrumentation.api.annotations.SpecificJvmCallInterceptors;
 
 @SuppressWarnings("NewMethodNamingConvention")
-@SpecificJvmCallInterceptors(generatedClassName = InterceptorDeclaration.JVM_BYTECODE_GENERATED_CLASS_NAME_FOR_CODE_QUALITY)
 public class CheckstyleInterceptor {
-
-    @InterceptCalls
-    @CallableKind.InstanceMethod
-    public static int intercept_getMaxErrors(@ParameterKind.Receiver Checkstyle self) {
-        return self.getMaxErrors().getOrElse(0);
-    }
-
-    @InterceptCalls
-    @CallableKind.InstanceMethod
-    public static void intercept_setMaxErrors(@ParameterKind.Receiver Checkstyle self, int value) {
-        self.getMaxErrors().set(value);
-    }
 
     @SpecificGroovyCallInterceptors(generatedClassName = InterceptorDeclaration.GROOVY_INTERCEPTORS_GENERATED_CLASS_NAME_FOR_CODE_QUALITY)
     public static class CheckstyleGroovyInterceptor {
