@@ -28,6 +28,7 @@ import org.gradle.internal.jvm.inspection.JvmVendor
 import org.gradle.internal.operations.BuildOperationProgressEventEmitter
 import org.gradle.internal.operations.TestBuildOperationExecutor
 import org.gradle.internal.os.OperatingSystem
+import org.gradle.internal.progress.NoOpProgressLoggerFactory
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainSpec
 import org.gradle.jvm.toolchain.JvmImplementation
@@ -502,11 +503,16 @@ class JavaToolchainQueryServiceTest extends Specification {
     ) {
         def supplier = new InstallationSupplier() {
             @Override
+            String getSourceName() {
+                "test"
+            }
+
+            @Override
             Set<InstallationLocation> get() {
-                installations.collect { new InstallationLocation(new File("/path/${it}").absoluteFile, "test") } as Set
+                installations.collect { new InstallationLocation(new File("/path/${it}").absoluteFile, getSourceName()) } as Set
             }
         }
-        def registry = new JavaInstallationRegistry([supplier], detector, new TestBuildOperationExecutor(), OperatingSystem.current()) {
+        def registry = new JavaInstallationRegistry([supplier], detector, new TestBuildOperationExecutor(), OperatingSystem.current(), new NoOpProgressLoggerFactory()) {
             @Override
             boolean installationExists(InstallationLocation installationLocation) {
                 return true
