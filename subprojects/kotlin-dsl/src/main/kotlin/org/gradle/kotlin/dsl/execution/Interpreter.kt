@@ -140,6 +140,8 @@ class Interpreter(val host: Host) {
 
         val jvmTarget: JavaVersion
 
+        val allWarningsAsErrors: Boolean
+
         fun serviceRegistryFor(programTarget: ProgramTarget, target: Any): ServiceRegistry = when (programTarget) {
             ProgramTarget.Project -> serviceRegistryOf(target as Project)
             ProgramTarget.Settings -> serviceRegistryOf(target as Settings)
@@ -317,6 +319,7 @@ class Interpreter(val host: Host) {
                 ResidualProgramCompiler(
                     outputDir = cachedDir,
                     jvmTarget = host.jvmTarget,
+                    allWarningsAsErrors = host.allWarningsAsErrors,
                     classPath = compilationClassPath,
                     originalSourceHash = programId.sourceHash,
                     programKind = programKind,
@@ -482,6 +485,7 @@ class Interpreter(val host: Host) {
                                 ResidualProgramCompiler(
                                     outputDir,
                                     host.jvmTarget,
+                                    host.allWarningsAsErrors,
                                     compilationClassPath,
                                     sourceHash,
                                     programKind,

@@ -27,6 +27,7 @@ import org.gradle.api.internal.initialization.loadercache.DefaultClasspathHasher
 import org.gradle.cache.internal.GeneratedGradleJarCache
 import org.gradle.groovy.scripts.internal.ScriptSourceHasher
 import org.gradle.initialization.ClassLoaderScopeRegistry
+import org.gradle.initialization.GradlePropertiesController
 import org.gradle.internal.classloader.ClasspathHasher
 import org.gradle.internal.classpath.CachedClasspathTransformer
 import org.gradle.internal.event.ListenerManager
@@ -105,7 +106,8 @@ object BuildServices {
         workspaceProvider: KotlinDslWorkspaceProvider,
         @Suppress("UNUSED_PARAMETER") kotlinCompilerContextDisposer: KotlinCompilerContextDisposer,
         fileCollectionFactory: FileCollectionFactory,
-        inputFingerprinter: InputFingerprinter
+        inputFingerprinter: InputFingerprinter,
+        gradlePropertiesController: GradlePropertiesController,
     ): KotlinScriptEvaluator =
 
         StandardKotlinScriptEvaluator(
@@ -126,7 +128,8 @@ object BuildServices {
             executionEngine,
             workspaceProvider,
             fileCollectionFactory,
-            inputFingerprinter
+            inputFingerprinter,
+            gradlePropertiesController,
         )
 
     @Suppress("unused")

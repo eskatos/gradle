@@ -103,6 +103,7 @@ abstract class CompilePrecompiledScriptPluginPlugins @Inject constructor(
                     ),
                     classPathFiles.filter { it.exists() },
                     logger,
+                    allWarningsAsErrors = false, // TODO use kotlin compiler configuration?
                     { it } // TODO: translate paths
                 )
         }
