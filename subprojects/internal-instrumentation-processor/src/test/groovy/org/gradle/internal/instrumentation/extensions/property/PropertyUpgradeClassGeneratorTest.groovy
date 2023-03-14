@@ -25,6 +25,7 @@ import javax.tools.JavaFileObject
 
 import static com.google.testing.compile.CompilationSubject.assertThat
 import static com.google.testing.compile.Compiler.javac
+import static org.gradle.internal.instrumentation.extensions.property.PropertyUpgradeAnnotatedMethodReaderExtension.INTERCEPTOR_JVM_DECLARATION_CLASS_NAME
 
 class PropertyUpgradeClassGeneratorTest extends Specification {
 
@@ -124,10 +125,111 @@ class PropertyUpgradeClassGeneratorTest extends Specification {
         "ConfigurableFileCollection"  | "FileCollection" | ""                   | ".setFrom(arg0)"   | "org.gradle.api.file.FileCollection"
     }
 
-    private static Compilation compile(JavaFileObject fileObject) {
+
+    def "should generate interceptors for custom accessors"() {
+        given:
+        def fQName = "org.gradle.test.Task"
+        def givenSource = JavaFileObjects.forSourceString(fQName, """
+            package org.gradle.test;
+
+            import org.gradle.api.provider.Property;
+            import org.gradle.internal.instrumentation.api.annotations.VisitForInstrumentation;
+            import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty;
+            import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedGetter;
+            import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedSetter;
+
+            @VisitForInstrumentation(value = {Task.class})
+            public abstract class Task {
+                @UpgradedProperty(accessors = TaskCustomAccessors.class)
+                public abstract Property<Integer> getMaxErrors();
+            }
+        """)
+        def givenAccessorsSource = JavaFileObjects.forSourceString("org.gradle.test.TaskCustomAccessors", """
+                package org.gradle.test;
+
+                import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedGetter;
+                import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedSetter;
+
+                public class TaskCustomAccessors {
+                    @UpgradedSetter(forProperty = "maxErrors")
+                    public static void access_setMaxErrors(Task self, int value) {
+                    }
+                    @UpgradedSetter(forProperty = "maxErrors")
+                    public static Task access_setMaxErrors(Task self, Object value) {
+                        return self;
+                    }
+                    @UpgradedGetter(forProperty = "maxErrors")
+                    public static int access_getMaxErrors(Task self) {
+                        return self.getMaxErrors().get();
+                    }
+                }
+        """)
+
+        when:
+        Compilation compilation = compile(givenSource, givenAccessorsSource)
+
+        then:
+        def generatedClassName = INTERCEPTOR_JVM_DECLARATION_CLASS_NAME
+        def expectedVisitMethodIns = JavaFileObjects.forSourceLines(generatedClassName, """
+            package org.gradle.internal.classpath;
+
+            import java.lang.Override;
+            import java.lang.String;
+            import java.util.function.Supplier;
+            import org.gradle.internal.instrumentation.api.jvmbytecode.JvmBytecodeCallInterceptor;
+            import org.gradle.model.internal.asm.MethodVisitorScope;
+            import org.gradle.test.Task;
+            import org.gradle.test.TaskCustomAccessors;
+            import org.objectweb.asm.Opcodes;
+            import org.objectweb.asm.Type;
+            import org.objectweb.asm.tree.MethodNode;
+
+            class InterceptorDeclaration_JvmBytecodeImplPropertyUpgrades extends MethodVisitorScope implements JvmBytecodeCallInterceptor {
+                private static final Type TASK_CUSTOM_ACCESSORS_TYPE = Type.getType(TaskCustomAccessors.class);
+
+                @Override
+                public boolean visitMethodInsn(String className, int opcode, String owner, String name,
+                        String descriptor, boolean isInterface, Supplier<MethodNode> readMethodNode) {
+                    if (owner.equals("org/gradle/test/Task")) {
+                        /**
+                         * Intercepting instance method: {@link org.gradle.test.Task#getMaxErrors()}
+                         * Intercepted by {@link TaskCustomAccessors#access_getMaxErrors(Task)}
+                        */
+                        if (name.equals("getMaxErrors") && descriptor.equals("()I") && opcode == Opcodes.INVOKEVIRTUAL) {
+                            _INVOKESTATIC(TASK_CUSTOM_ACCESSORS_TYPE, "access_getMaxErrors", "(Lorg/gradle/test/Task;)I");
+                            return true;
+                        }
+                        /**
+                         * Intercepting instance method: {@link org.gradle.test.Task#setMaxErrors(int)}
+                         * Intercepted by {@link TaskCustomAccessors#access_setMaxErrors(Task, int)}
+                        */
+                        if (name.equals("setMaxErrors") && descriptor.equals("(I)V") && opcode == Opcodes.INVOKEVIRTUAL) {
+                            _INVOKESTATIC(TASK_CUSTOM_ACCESSORS_TYPE, "access_setMaxErrors", "(Lorg/gradle/test/Task;I)V");
+                            return true;
+                        }
+                        /**
+                         * Intercepting instance method: {@link org.gradle.test.Task#setMaxErrors(Object)}
+                         * Intercepted by {@link TaskCustomAccessors#access_setMaxErrors(Task, Object)}
+                        */
+                        if (name.equals("setMaxErrors") && descriptor.equals("(Ljava/lang/Object;)Lorg/gradle/test/Task;") && opcode == Opcodes.INVOKEVIRTUAL) {
+                            _INVOKESTATIC(TASK_CUSTOM_ACCESSORS_TYPE, "access_setMaxErrors", "(Lorg/gradle/test/Task;Ljava/lang/Object;)Lorg/gradle/test/Task;");
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+            }
+        """)
+        assertThat(compilation).succeededWithoutWarnings()
+        assertThat(compilation)
+                .generatedSourceFile(generatedClassName)
+                .containsElementsIn(expectedVisitMethodIns)
+    }
+
+    private static Compilation compile(JavaFileObject... fileObjects) {
         return javac()
             .withOptions("--release=8")
             .withProcessors(new ConfigurationCacheInstrumentationProcessor())
-            .compile(fileObject)
+            .compile(fileObjects)
     }
 }

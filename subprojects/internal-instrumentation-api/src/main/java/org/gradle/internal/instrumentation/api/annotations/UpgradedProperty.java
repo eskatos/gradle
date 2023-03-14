@@ -36,8 +36,38 @@ public @interface UpgradedProperty {
      * ListProperty[T] -> original type becomes List[T]
      * ConfigurableFileCollection -> original type becomes FileCollection
      */
-    Class<?> originalType() default SameAsGenericType.class;
+    Class<?> originalType() default DefaultValue.class;
 
-    interface SameAsGenericType {
+    /**
+     * Sets accessors that will be used in instrumentation calls. By default accessors are auto generated,
+     * but for special cases you can provide a custom accessors class implementation.
+     *
+     * There are certain rules to follow:
+     * - accessors methods has to be static
+     * - accessors first parameter has to be an upgraded class, e.g. when upgrading Checkstyle, first parameter has to be of type Checkstyle
+     * - accessors methods has start with access_<old method name>
+     * - getter has to be annotated with @UpgradedGetter and setter with @UpgradedSetter
+     */
+    Class<?> accessors() default DefaultValue.class;
+
+    interface DefaultValue {
+    }
+
+    @Retention(RetentionPolicy.CLASS)
+    @Target({ElementType.METHOD})
+    @interface UpgradedGetter {
+        String forProperty();
+
+        /**
+         * Tells processor that this getter is used also for Groovy property access.
+         * Class can have just one such getter.
+         */
+        boolean isGetterForGroovyPropertyAccess() default true;
+    }
+
+    @Retention(RetentionPolicy.CLASS)
+    @Target({ElementType.METHOD})
+    @interface UpgradedSetter {
+        String forProperty();
     }
 }
