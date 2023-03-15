@@ -25,9 +25,10 @@ import javax.tools.JavaFileObject
 
 import static com.google.testing.compile.CompilationSubject.assertThat
 import static com.google.testing.compile.Compiler.javac
+import static org.gradle.internal.instrumentation.extensions.property.PropertyUpgradeAnnotatedMethodReaderExtension.INTERCEPTOR_GROOVY_DECLARATION_CLASS_NAME
 import static org.gradle.internal.instrumentation.extensions.property.PropertyUpgradeAnnotatedMethodReaderExtension.INTERCEPTOR_JVM_DECLARATION_CLASS_NAME
 
-class PropertyUpgradeClassGeneratorTest extends Specification {
+class PropertyUpgradeCodeGenTest extends Specification {
 
     def "should generate adapter for upgraded property with originalType"() {
         given:
@@ -125,7 +126,6 @@ class PropertyUpgradeClassGeneratorTest extends Specification {
         "ConfigurableFileCollection"  | "FileCollection" | ""                   | ".setFrom(arg0)"   | "org.gradle.api.file.FileCollection"
     }
 
-
     def "should generate interceptors for custom accessors"() {
         given:
         def fQName = "org.gradle.test.Task"
@@ -149,6 +149,7 @@ class PropertyUpgradeClassGeneratorTest extends Specification {
 
                 import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedGetter;
                 import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedSetter;
+                import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedGroovyProperty;
 
                 public class TaskCustomAccessors {
                     @UpgradedSetter(forProperty = "maxErrors")
@@ -158,7 +159,9 @@ class PropertyUpgradeClassGeneratorTest extends Specification {
                     public static Task access_setMaxErrors(Task self, Object value) {
                         return self;
                     }
+
                     @UpgradedGetter(forProperty = "maxErrors")
+                    @UpgradedGroovyProperty(forProperty = "maxErrors")
                     public static int access_getMaxErrors(Task self) {
                         return self.getMaxErrors().get();
                     }
@@ -169,8 +172,8 @@ class PropertyUpgradeClassGeneratorTest extends Specification {
         Compilation compilation = compile(givenSource, givenAccessorsSource)
 
         then:
-        def generatedClassName = INTERCEPTOR_JVM_DECLARATION_CLASS_NAME
-        def expectedVisitMethodIns = JavaFileObjects.forSourceLines(generatedClassName, """
+        def jvmInterceptorsClassName = INTERCEPTOR_JVM_DECLARATION_CLASS_NAME
+        def expectedJvmInterceptors = JavaFileObjects.forSourceLines(jvmInterceptorsClassName, """
             package org.gradle.internal.classpath;
 
             import java.lang.Override;
@@ -220,10 +223,63 @@ class PropertyUpgradeClassGeneratorTest extends Specification {
                 }
             }
         """)
+        def groovyInterceptorsClassName = INTERCEPTOR_GROOVY_DECLARATION_CLASS_NAME
+        def expectedGroovyInterceptors = JavaFileObjects.forSourceLines(groovyInterceptorsClassName, """
+            package org.gradle.internal.classpath;
+
+            import java.lang.Object;
+            import java.lang.Override;
+            import java.lang.String;
+            import java.lang.Throwable;
+            import java.util.Arrays;
+            import java.util.List;
+            import org.gradle.internal.classpath.intercept.CallInterceptor;
+            import org.gradle.internal.classpath.intercept.InterceptScope;
+            import org.gradle.internal.classpath.intercept.Invocation;
+            import org.gradle.test.Task;
+            import org.gradle.test.TaskCustomAccessors;
+
+            class InterceptorDeclaration_GroovyInterceptorsImplPropertyUpgrades {
+                public static List<CallInterceptor> getCallInterceptors() {
+                    return Arrays.asList(
+                        new GetMaxErrorsCallInterceptor()
+                    );
+                }
+
+                /**
+                 * Intercepts the following declarations:<ul>
+                 *
+                 * <li> Groovy property getter {@link org.gradle.test.Task#maxErrors}
+                 *      with {@link TaskCustomAccessors#access_getMaxErrors(Task)}
+                 *
+                 * </ul>
+                 */
+                private static class GetMaxErrorsCallInterceptor extends CallInterceptor {
+                    public GetMaxErrorsCallInterceptor() {
+                        super(InterceptScope.readsOfPropertiesNamed("maxErrors"), InterceptScope.methodsNamed("getMaxErrors"));
+                    }
+
+                    @Override
+                    protected Object doIntercept(Invocation invocation, String consumer) throws Throwable {
+                        Object receiver = invocation.getReceiver();
+                        if (receiver instanceof Task) {
+                            Task receiverTyped = (Task) receiver;
+                            if (invocation.getArgsCount() == 0) {
+                                return TaskCustomAccessors.access_getMaxErrors(receiverTyped);
+                            }
+                        }
+                        return invocation.callOriginal();
+                    }
+                }
+            }
+        """)
         assertThat(compilation).succeededWithoutWarnings()
         assertThat(compilation)
-                .generatedSourceFile(generatedClassName)
-                .containsElementsIn(expectedVisitMethodIns)
+            .generatedSourceFile(jvmInterceptorsClassName)
+            .containsElementsIn(expectedJvmInterceptors)
+        assertThat(compilation)
+            .generatedSourceFile(groovyInterceptorsClassName)
+            .hasSourceEquivalentTo(expectedGroovyInterceptors)
     }
 
     private static Compilation compile(JavaFileObject... fileObjects) {
