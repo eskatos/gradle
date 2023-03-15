@@ -30,7 +30,7 @@ import static org.gradle.internal.instrumentation.extensions.property.PropertyUp
 
 class PropertyUpgradeCodeGenTest extends Specification {
 
-    def "should generate adapter for upgraded property with originalType"() {
+    def "should auto generate adapter for upgraded property with originalType"() {
         given:
         def fQName = "org.gradle.test.Task"
         def givenSource = JavaFileObjects.forSourceString(fQName, """
@@ -72,7 +72,7 @@ class PropertyUpgradeCodeGenTest extends Specification {
             .hasSourceEquivalentTo(expectedOutput)
     }
 
-    def "should generate adapter for upgraded property with type #upgradedType"() {
+    def "should auto generate adapter for upgraded property with type #upgradedType"() {
         given:
         def fQName = "org.gradle.test.Task"
         def givenSource = JavaFileObjects.forSourceString(fQName, """
@@ -280,6 +280,131 @@ class PropertyUpgradeCodeGenTest extends Specification {
         assertThat(compilation)
             .generatedSourceFile(groovyInterceptorsClassName)
             .hasSourceEquivalentTo(expectedGroovyInterceptors)
+    }
+
+    def "should fail compilation with errors if custom accessors has errors"() {
+        given:
+        def fQName = "org.gradle.test.Task"
+        def givenSource = JavaFileObjects.forSourceString(fQName, """
+            package org.gradle.test;
+
+            import org.gradle.api.provider.Property;
+            import org.gradle.internal.instrumentation.api.annotations.VisitForInstrumentation;
+            import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty;
+            import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedGetter;
+            import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedSetter;
+
+            @VisitForInstrumentation(value = {Task.class})
+            public abstract class Task {
+                @UpgradedProperty(accessors = TaskCustomAccessors.class)
+                public abstract Property<Integer> getMaxWarnings();
+                @UpgradedProperty(accessors = TaskCustomAccessors.class)
+                public abstract Property<Integer> getMaxErrors();
+                @UpgradedProperty(accessors = TaskCustomAccessors.class)
+                public abstract Property<Integer> getMaxSuccesses();
+                @UpgradedProperty(accessors = TaskCustomAccessors.class)
+                public abstract Property<Integer> getMinErrors();
+            }
+        """)
+        def givenAccessorsSource = JavaFileObjects.forSourceString("org.gradle.test.TaskCustomAccessors", """
+                package org.gradle.test;
+
+                import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedGetter;
+                import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedSetter;
+                import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedGroovyProperty;
+
+                public class TaskCustomAccessors {
+                    @UpgradedSetter(forProperty = "maxErrors")
+                    public static void access_setMaxErrors() {
+                    }
+                    @UpgradedSetter(forProperty = "maxErrors")
+                    public static Task access_setMaxErrors(Task self, Object value) {
+                        return self;
+                    }
+                    @UpgradedSetter(forProperty = "maxErrors")
+                    public static void access_setMaxErrors(int value) {
+                    }
+                    @UpgradedGetter(forProperty = "maxErrors")
+                    @UpgradedGroovyProperty(forProperty = "maxErrors")
+                    public static int access_getMaxErrors(Task self, int arg0) {
+                        return self.getMaxErrors().get();
+                    }
+                    @UpgradedSetter(forProperty = "maxSuccesses")
+                    public static int setMaxSuccesses(Task self) {
+                        return 0;
+                    }
+                    @UpgradedGetter(forProperty = "maxSuccesses")
+                    @UpgradedGroovyProperty(forProperty = "maxSuccesses")
+                    public static void access_getMaxSuccesses(Task self) {
+                    }
+                    @UpgradedGetter(forProperty = "minErrors")
+                    @UpgradedSetter(forProperty = "minErrors")
+                    @UpgradedGroovyProperty(forProperty = "minErrors")
+                    public static int access_setAndGetMinErrors(Task self) {
+                        return 0;
+                    }
+                }
+        """)
+
+        when:
+        Compilation compilation = compile(givenSource, givenAccessorsSource)
+
+        then:
+        assertThat(compilation).failed()
+        assertThat(compilation).hadErrorCount(10)
+        assertThat(compilation).hadErrorContaining("No custom accessors found for property: org.gradle.test.Task.getMaxWarnings().")
+        assertThat(compilation).hadErrorContaining("No accessors annotated with @UpgradedGroovyProperty for property: org.gradle.test.Task.getMaxWarnings(). There should be 1 accessor with that annotation.")
+        assertThat(compilation).hadErrorContaining("No accessors annotated with @UpgradedGetter for property: org.gradle.test.Task.getMaxWarnings(). There should be at least 1 accessor with that annotation.")
+        assertThat(compilation).hadErrorContaining("First parameter for accessor method 'org.gradle.test.TaskCustomAccessors.access_setMaxErrors()' should be of type 'org.gradle.test.Task', but this method has no parameter.")
+        assertThat(compilation).hadErrorContaining("First parameter for accessor method 'org.gradle.test.TaskCustomAccessors.access_setMaxErrors(int)' should be of type 'org.gradle.test.Task', but is 'int'.")
+        assertThat(compilation).hadErrorContaining("Too many parameters for accessor method 'org.gradle.test.TaskCustomAccessors.access_getMaxErrors(org.gradle.test.Task,int)' annotated with @UpgradedGroovyProperty or @UpgradedGetter. There should be just 1 parameter of type 'org.gradle.test.Task', but this method has also additional parameters.")
+        assertThat(compilation).hadErrorContaining("Accessor method 'org.gradle.test.TaskCustomAccessors.setMaxSuccesses(org.gradle.test.Task)' name should start with 'access_'.")
+        assertThat(compilation).hadErrorContaining("Accessor method 'org.gradle.test.TaskCustomAccessors.access_getMaxSuccesses(org.gradle.test.Task)' annotated with @UpgradedGroovyProperty or @UpgradedGetter should not have return type 'void'.")
+        assertThat(compilation).hadErrorContaining("Accessor method 'org.gradle.test.TaskCustomAccessors.access_setAndGetMinErrors(org.gradle.test.Task)' should not have have @UpgradedGetter and @UpgradedSetter annotation.")
+        assertThat(compilation).hadErrorContaining("Accessor method 'org.gradle.test.TaskCustomAccessors.access_setAndGetMinErrors(org.gradle.test.Task)' should not have have @UpgradedGroovyProperty and @UpgradedSetter annotation.")
+    }
+
+    def "should fail compilation with error if custom accessor method is for multiple properties"() {
+        given:
+        def fQName = "org.gradle.test.Task"
+        def givenSource = JavaFileObjects.forSourceString(fQName, """
+            package org.gradle.test;
+
+            import org.gradle.api.provider.Property;
+            import org.gradle.internal.instrumentation.api.annotations.VisitForInstrumentation;
+            import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty;
+            import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedGetter;
+            import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedSetter;
+
+            @VisitForInstrumentation(value = {Task.class})
+            public abstract class Task {
+                @UpgradedProperty(accessors = TaskCustomAccessors.class)
+                public abstract Property<Integer> getMaxErrors();
+            }
+        """)
+        def givenAccessorsSource = JavaFileObjects.forSourceString("org.gradle.test.TaskCustomAccessors", """
+                package org.gradle.test;
+
+                import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedGetter;
+                import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedSetter;
+                import org.gradle.internal.instrumentation.api.annotations.UpgradedProperty.UpgradedGroovyProperty;
+
+                public class TaskCustomAccessors {
+                    @UpgradedGetter(forProperty = "maxErrors2")
+                    @UpgradedGroovyProperty(forProperty = "maxErrors")
+                    public static int access_getMaxErrors(Task self) {
+                        return self.getMaxErrors().get();
+                    }
+                }
+        """)
+
+        when:
+        Compilation compilation = compile(givenSource, givenAccessorsSource)
+
+        then:
+        assertThat(compilation).failed()
+        assertThat(compilation).hadErrorCount(1)
+        assertThat(compilation).hadErrorContaining("Accessor method 'org.gradle.test.TaskCustomAccessors.access_getMaxErrors(org.gradle.test.Task)' is used multiple different properties. That use case is not supported.")
     }
 
     private static Compilation compile(JavaFileObject... fileObjects) {
