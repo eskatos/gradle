@@ -28,7 +28,6 @@ import org.gradle.cache.CacheOpenException
 import org.gradle.groovy.scripts.ScriptSource
 import org.gradle.groovy.scripts.internal.ScriptSourceHasher
 import org.gradle.initialization.ClassLoaderScopeOrigin
-import org.gradle.internal.classloader.ClasspathHasher
 import org.gradle.internal.classpath.CachedClasspathTransformer
 import org.gradle.internal.classpath.CachedClasspathTransformer.StandardTransform.BuildLogic
 import org.gradle.internal.classpath.ClassPath
@@ -58,6 +57,7 @@ import org.gradle.kotlin.dsl.execution.EvalOption
 import org.gradle.kotlin.dsl.execution.EvalOptions
 import org.gradle.kotlin.dsl.execution.Interpreter
 import org.gradle.kotlin.dsl.execution.ProgramId
+import org.gradle.kotlin.dsl.normalization.KotlinClasspathHasher
 import org.gradle.kotlin.dsl.support.EmbeddedKotlinProvider
 import org.gradle.kotlin.dsl.support.ImplicitImports
 import org.gradle.kotlin.dsl.support.KotlinScriptHost
@@ -92,7 +92,7 @@ class StandardKotlinScriptEvaluator(
     private val classPathModeExceptionCollector: ClassPathModeExceptionCollector,
     private val kotlinScriptBasePluginsApplicator: KotlinScriptBasePluginsApplicator,
     private val scriptSourceHasher: ScriptSourceHasher,
-    private val classpathHasher: ClasspathHasher,
+    private val classpathHasher: KotlinClasspathHasher,
     private val implicitImports: ImplicitImports,
     private val progressLoggerFactory: ProgressLoggerFactory,
     private val buildOperationExecutor: BuildOperationExecutor,
@@ -340,7 +340,7 @@ class CompileKotlinScript(
     private val compilationClassPath: ClassPath,
     private val accessorsClassPath: ClassPath,
     private val compileTo: (File) -> Unit,
-    private val classpathHasher: ClasspathHasher,
+    private val classpathHasher: KotlinClasspathHasher,
     private val workspaceProvider: KotlinDslWorkspaceProvider,
     private val fileCollectionFactory: FileCollectionFactory,
     private val inputFingerprinter: InputFingerprinter

@@ -3,7 +3,7 @@ package org.gradle.kotlin.dsl.integration
 import org.gradle.integtests.fixtures.BuildOperationsFixture
 import org.gradle.integtests.fixtures.ToBeFixedForConfigurationCache
 import org.gradle.kotlin.dsl.fixtures.AbstractKotlinIntegrationTest
-import org.gradle.kotlin.dsl.provider.BUILDSCRIPT_COMPILE_AVOIDANCE_ENABLED
+import org.gradle.kotlin.dsl.normalization.BUILDSCRIPT_COMPILE_AVOIDANCE_ENABLED
 import org.gradle.util.Matchers.isEmpty
 import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.CoreMatchers.endsWith

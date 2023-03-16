@@ -19,8 +19,8 @@ package org.gradle.kotlin.dsl.accessors
 import org.gradle.api.internal.file.FileCollectionFactory
 import org.gradle.internal.execution.ExecutionEngine
 import org.gradle.internal.execution.InputFingerprinter
-import org.gradle.internal.hash.ClassLoaderHierarchyHasher
 import org.gradle.kotlin.dsl.cache.KotlinDslWorkspaceProvider
+import org.gradle.kotlin.dsl.normalization.KotlinClasspathHasher
 
 
 internal
@@ -28,13 +28,13 @@ object GradleScopeServices {
 
     @Suppress("unused")
     fun createStage1BlocksAccessorClassPathGenerator(
-        classLoaderHierarchyHasher: ClassLoaderHierarchyHasher,
+        classpathHasher: KotlinClasspathHasher,
         fileCollectionFactory: FileCollectionFactory,
         executionEngine: ExecutionEngine,
         inputFingerprinter: InputFingerprinter,
         workspaceProvider: KotlinDslWorkspaceProvider
     ) = Stage1BlocksAccessorClassPathGenerator(
-        classLoaderHierarchyHasher,
+        classpathHasher,
         fileCollectionFactory,
         executionEngine,
         inputFingerprinter,
@@ -43,12 +43,14 @@ object GradleScopeServices {
 
     @Suppress("unused")
     fun createProjectAccessorClassPathGenerator(
+        classpathHasher: KotlinClasspathHasher,
         fileCollectionFactory: FileCollectionFactory,
         projectSchemaProvider: ProjectSchemaProvider,
         executionEngine: ExecutionEngine,
         inputFingerprinter: InputFingerprinter,
         workspaceProvider: KotlinDslWorkspaceProvider
     ) = ProjectAccessorsClassPathGenerator(
+        classpathHasher,
         fileCollectionFactory,
         projectSchemaProvider,
         executionEngine,

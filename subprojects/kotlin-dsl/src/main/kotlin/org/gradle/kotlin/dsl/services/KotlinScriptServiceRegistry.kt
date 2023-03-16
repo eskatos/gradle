@@ -28,6 +28,7 @@ class KotlinScriptServiceRegistry : AbstractPluginServiceRegistry() {
     }
 
     override fun registerBuildServices(registration: ServiceRegistration) {
+        registration.addProvider(org.gradle.kotlin.dsl.normalization.BuildScopeServices)
         registration.addProvider(org.gradle.kotlin.dsl.concurrent.BuildServices)
         registration.addProvider(org.gradle.kotlin.dsl.provider.BuildServices)
     }

@@ -25,24 +25,20 @@ import org.gradle.internal.classpath.DefaultClassPath
 import org.gradle.internal.execution.ExecutionEngine
 import org.gradle.internal.execution.InputFingerprinter
 import org.gradle.internal.execution.UnitOfWork
-import org.gradle.internal.execution.UnitOfWork.InputFileValueSupplier
 import org.gradle.internal.execution.UnitOfWork.InputVisitor
 import org.gradle.internal.execution.UnitOfWork.OutputFileValueSupplier
-import org.gradle.internal.execution.model.InputNormalizer
 import org.gradle.internal.file.TreeType.DIRECTORY
 import org.gradle.internal.fingerprint.CurrentFileCollectionFingerprint
-import org.gradle.internal.fingerprint.DirectorySensitivity
-import org.gradle.internal.fingerprint.LineEndingSensitivity
 import org.gradle.internal.hash.HashCode
 import org.gradle.internal.hash.Hasher
 import org.gradle.internal.hash.Hashing
-import org.gradle.internal.properties.InputBehavior.NON_INCREMENTAL
 import org.gradle.internal.snapshot.ValueSnapshot
 import org.gradle.kotlin.dsl.cache.KotlinDslWorkspaceProvider
 import org.gradle.kotlin.dsl.codegen.fileHeaderFor
 import org.gradle.kotlin.dsl.codegen.kotlinDslPackageName
 import org.gradle.kotlin.dsl.concurrent.IO
 import org.gradle.kotlin.dsl.concurrent.withAsynchronousIO
+import org.gradle.kotlin.dsl.normalization.KotlinClasspathHasher
 import org.gradle.kotlin.dsl.support.ClassBytesRepository
 import org.gradle.kotlin.dsl.support.appendReproducibleNewLine
 import org.gradle.kotlin.dsl.support.useToRun
@@ -63,6 +59,7 @@ import javax.inject.Inject
 
 
 class ProjectAccessorsClassPathGenerator @Inject internal constructor(
+    private val classpathHasher: KotlinClasspathHasher,
     private val fileCollectionFactory: FileCollectionFactory,
     private val projectSchemaProvider: ProjectSchemaProvider,
     private val executionEngine: ExecutionEngine,
@@ -84,6 +81,7 @@ class ProjectAccessorsClassPathGenerator @Inject internal constructor(
                 project,
                 projectSchema,
                 classPath,
+                classpathHasher,
                 fileCollectionFactory,
                 inputFingerprinter,
                 workspaceProvider
@@ -109,6 +107,7 @@ class GenerateProjectAccessors(
     private val project: Project,
     private val projectSchema: TypedProjectSchema,
     private val classPath: ClassPath,
+    private val classpathHasher: KotlinClasspathHasher,
     private val fileCollectionFactory: FileCollectionFactory,
     private val inputFingerprinter: InputFingerprinter,
     private val workspaceProvider: KotlinDslWorkspaceProvider
@@ -146,7 +145,7 @@ class GenerateProjectAccessors(
     override fun identify(identityInputs: Map<String, ValueSnapshot>, identityFileInputs: Map<String, CurrentFileCollectionFingerprint>): UnitOfWork.Identity {
         val hasher = Hashing.newHasher()
         requireNotNull(identityInputs[PROJECT_SCHEMA_INPUT_PROPERTY]).appendToHasher(hasher)
-        hasher.putHash(requireNotNull(identityFileInputs[CLASSPATH_INPUT_PROPERTY]).hash)
+        requireNotNull(identityInputs[CLASSPATH_INPUT_PROPERTY]).appendToHasher(hasher)
         val identityHash = hasher.hash().toString()
         return UnitOfWork.Identity { identityHash }
     }
@@ -159,16 +158,7 @@ class GenerateProjectAccessors(
 
     override fun visitIdentityInputs(visitor: InputVisitor) {
         visitor.visitInputProperty(PROJECT_SCHEMA_INPUT_PROPERTY) { hashCodeFor(projectSchema) }
-        visitor.visitInputFileProperty(
-            CLASSPATH_INPUT_PROPERTY,
-            NON_INCREMENTAL,
-            InputFileValueSupplier(
-                classPath,
-                InputNormalizer.RUNTIME_CLASSPATH,
-                DirectorySensitivity.IGNORE_DIRECTORIES,
-                LineEndingSensitivity.DEFAULT,
-            ) { fileCollectionFactory.fixed(classPath.asFiles) }
-        )
+        visitor.visitInputProperty(CLASSPATH_INPUT_PROPERTY) { classpathHasher.hash(classPath) }
     }
 
     override fun visitOutputs(workspace: File, visitor: UnitOfWork.OutputVisitor) {

@@ -64,5 +64,5 @@ class CompileAvoidanceExceptionReporter : ZipHasher.HashingExceptionReporter {
 }
 
 
-internal
+private
 val logger = loggerFor<KotlinCompileClasspathFingerprinter>()

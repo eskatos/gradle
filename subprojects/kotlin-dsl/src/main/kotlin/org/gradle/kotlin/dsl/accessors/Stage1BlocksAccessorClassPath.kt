@@ -24,6 +24,7 @@ import org.gradle.api.internal.catalog.ExternalModuleDependencyFactory
 import org.gradle.api.internal.file.FileCollectionFactory
 import org.gradle.api.internal.initialization.ClassLoaderScope
 import org.gradle.api.internal.project.ProjectInternal
+import org.gradle.internal.classloader.ClasspathUtil
 import org.gradle.internal.classpath.DefaultClassPath
 import org.gradle.internal.execution.ExecutionEngine
 import org.gradle.internal.execution.InputFingerprinter
@@ -32,13 +33,13 @@ import org.gradle.internal.execution.UnitOfWork.InputVisitor
 import org.gradle.internal.execution.UnitOfWork.OutputFileValueSupplier
 import org.gradle.internal.file.TreeType.DIRECTORY
 import org.gradle.internal.fingerprint.CurrentFileCollectionFingerprint
-import org.gradle.internal.hash.ClassLoaderHierarchyHasher
 import org.gradle.internal.hash.HashCode
 import org.gradle.internal.snapshot.ValueSnapshot
 import org.gradle.kotlin.dsl.*
 import org.gradle.kotlin.dsl.cache.KotlinDslWorkspaceProvider
 import org.gradle.kotlin.dsl.concurrent.IO
 import org.gradle.kotlin.dsl.concurrent.writeFile
+import org.gradle.kotlin.dsl.normalization.KotlinClasspathHasher
 import org.gradle.kotlin.dsl.support.bytecode.InternalName
 import org.gradle.kotlin.dsl.support.bytecode.KmTypeBuilder
 import java.io.File
@@ -54,7 +55,7 @@ import javax.inject.Inject
  * - plugin spec builders for all plugin ids found in the `buildSrc` classpath.
  */
 class Stage1BlocksAccessorClassPathGenerator @Inject internal constructor(
-    private val classLoaderHierarchyHasher: ClassLoaderHierarchyHasher,
+    private val classpathHasher: KotlinClasspathHasher,
     private val fileCollectionFactory: FileCollectionFactory,
     private val executionEngine: ExecutionEngine,
     private val inputFingerprinter: InputFingerprinter,
@@ -64,7 +65,7 @@ class Stage1BlocksAccessorClassPathGenerator @Inject internal constructor(
         project.owner.owner.projects.rootProject.mutableModel.let { rootProject ->
             rootProject.getOrCreateProperty("gradleKotlinDsl.stage1AccessorsClassPath") {
                 val buildSrcClassLoaderScope = baseClassLoaderScopeOf(rootProject)
-                val classLoaderHash = requireNotNull(classLoaderHierarchyHasher.getClassLoaderHash(buildSrcClassLoaderScope.exportClassLoader))
+                val classLoaderHash = classpathHasher.hash(ClasspathUtil.getClasspath(buildSrcClassLoaderScope.exportClassLoader))
                 val versionCatalogAccessors = generateVersionCatalogAccessors(rootProject, buildSrcClassLoaderScope, classLoaderHash)
                 val pluginSpecBuildersAccessors = generatePluginSpecBuildersAccessors(rootProject, buildSrcClassLoaderScope, classLoaderHash)
                 versionCatalogAccessors + pluginSpecBuildersAccessors

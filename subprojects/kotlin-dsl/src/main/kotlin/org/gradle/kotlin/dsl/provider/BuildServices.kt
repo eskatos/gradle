@@ -18,35 +18,25 @@ package org.gradle.kotlin.dsl.provider
 
 import org.gradle.api.internal.ClassPathRegistry
 import org.gradle.api.internal.artifacts.dsl.dependencies.DependencyFactoryInternal
-import org.gradle.api.internal.cache.StringInterner
-import org.gradle.api.internal.changedetection.state.ResourceSnapshotterCacheService
 import org.gradle.api.internal.classpath.ModuleRegistry
 import org.gradle.api.internal.file.FileCollectionFactory
 import org.gradle.api.internal.file.temp.TemporaryFileProvider
-import org.gradle.api.internal.initialization.loadercache.DefaultClasspathHasher
 import org.gradle.cache.internal.GeneratedGradleJarCache
 import org.gradle.groovy.scripts.internal.ScriptSourceHasher
 import org.gradle.initialization.ClassLoaderScopeRegistry
-import org.gradle.internal.classloader.ClasspathHasher
 import org.gradle.internal.classpath.CachedClasspathTransformer
 import org.gradle.internal.event.ListenerManager
 import org.gradle.internal.execution.ExecutionEngine
-import org.gradle.internal.execution.FileCollectionSnapshotter
 import org.gradle.internal.execution.InputFingerprinter
-import org.gradle.internal.fingerprint.classpath.ClasspathFingerprinter
 import org.gradle.internal.logging.progress.ProgressLoggerFactory
 import org.gradle.internal.operations.BuildOperationExecutor
 import org.gradle.internal.scripts.ScriptExecutionListener
 import org.gradle.kotlin.dsl.cache.KotlinDslWorkspaceProvider
-import org.gradle.kotlin.dsl.normalization.KotlinCompileClasspathFingerprinter
+import org.gradle.kotlin.dsl.normalization.KotlinClasspathHasher
 import org.gradle.kotlin.dsl.support.EmbeddedKotlinProvider
 import org.gradle.kotlin.dsl.support.ImplicitImports
 import org.gradle.plugin.management.internal.autoapply.AutoAppliedPluginHandler
 import org.gradle.plugin.use.internal.PluginRequestApplicator
-
-
-internal
-const val BUILDSCRIPT_COMPILE_AVOIDANCE_ENABLED = true
 
 
 internal
@@ -95,7 +85,7 @@ object BuildServices {
         classPathModeExceptionCollector: ClassPathModeExceptionCollector,
         kotlinScriptBasePluginsApplicator: KotlinScriptBasePluginsApplicator,
         scriptSourceHasher: ScriptSourceHasher,
-        classpathHasher: ClasspathHasher,
+        classpathHasher: KotlinClasspathHasher,
         implicitImports: ImplicitImports,
         progressLoggerFactory: ProgressLoggerFactory,
         buildOperationExecutor: BuildOperationExecutor,
@@ -127,27 +117,6 @@ object BuildServices {
             workspaceProvider,
             fileCollectionFactory,
             inputFingerprinter
-        )
-
-    @Suppress("unused")
-    fun createCompileClasspathHasher(
-        cacheService: ResourceSnapshotterCacheService,
-        fileCollectionSnapshotter: FileCollectionSnapshotter,
-        stringInterner: StringInterner,
-        fileCollectionFactory: FileCollectionFactory,
-        classpathFingerprinter: ClasspathFingerprinter
-    ) =
-        DefaultClasspathHasher(
-            if (BUILDSCRIPT_COMPILE_AVOIDANCE_ENABLED) {
-                KotlinCompileClasspathFingerprinter(
-                    cacheService,
-                    fileCollectionSnapshotter,
-                    stringInterner
-                )
-            } else {
-                classpathFingerprinter
-            },
-            fileCollectionFactory
         )
 
     @Suppress("unused")
