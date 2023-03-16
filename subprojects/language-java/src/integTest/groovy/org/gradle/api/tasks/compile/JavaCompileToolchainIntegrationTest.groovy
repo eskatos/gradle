@@ -30,6 +30,7 @@ import spock.lang.Issue
 
 import static org.junit.Assume.assumeNotNull
 
+@Requires(adhoc = { AvailableJavaHomes.differentVersion })
 class JavaCompileToolchainIntegrationTest extends AbstractIntegrationSpec implements JavaToolchainFixture {
 
     def setup() {

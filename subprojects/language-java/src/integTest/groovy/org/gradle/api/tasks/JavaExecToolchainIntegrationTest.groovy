@@ -22,8 +22,10 @@ import org.gradle.integtests.fixtures.AvailableJavaHomes
 import org.gradle.integtests.fixtures.jvm.JavaToolchainFixture
 import org.gradle.internal.jvm.Jvm
 import org.gradle.test.fixtures.file.TestFile
+import org.gradle.util.Requires
 import org.gradle.util.internal.TextUtil
 
+@Requires(adhoc = { AvailableJavaHomes.differentVersion })
 class JavaExecToolchainIntegrationTest extends AbstractIntegrationSpec implements JavaToolchainFixture {
 
     def setup() {

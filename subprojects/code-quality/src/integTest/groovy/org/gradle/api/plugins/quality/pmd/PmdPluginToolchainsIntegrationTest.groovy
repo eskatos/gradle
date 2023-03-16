@@ -19,6 +19,7 @@ package org.gradle.api.plugins.quality.pmd
 import org.gradle.integtests.fixtures.AvailableJavaHomes
 import org.gradle.integtests.fixtures.jvm.JavaToolchainFixture
 import org.gradle.internal.jvm.Jvm
+import org.gradle.util.Requires
 import org.gradle.util.internal.VersionNumber
 import org.junit.Assume
 
@@ -26,6 +27,7 @@ import org.junit.Assume
  * Tests to ensure toolchains specified by the {@code PmdPlugin} and
  * {@code Pmd} tasks behave as expected.
  */
+@Requires(adhoc = { AvailableJavaHomes.differentVersion })
 class PmdPluginToolchainsIntegrationTest extends AbstractPmdPluginVersionIntegrationTest implements JavaToolchainFixture {
 
     def setup() {

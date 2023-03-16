@@ -24,6 +24,7 @@ import org.gradle.integtests.fixtures.jvm.JavaToolchainFixture
 import org.gradle.internal.jvm.Jvm
 import org.gradle.test.fixtures.file.TestFile
 import org.gradle.testing.fixture.GroovyCoverage
+import org.gradle.util.Requires
 import org.gradle.util.internal.TextUtil
 import org.gradle.util.internal.VersionNumber
 import org.junit.Assume
@@ -32,6 +33,7 @@ import spock.lang.Ignore
 import static org.gradle.util.internal.GroovyDependencyUtil.groovyModuleDependency
 
 @TargetCoverage({ GroovyCoverage.SINCE_3_0 })
+@Requires(adhoc = { AvailableJavaHomes.differentVersion })
 class GroovyCompileToolchainIntegrationTest extends MultiVersionIntegrationSpec implements JavaToolchainFixture {
 
     def setup() {

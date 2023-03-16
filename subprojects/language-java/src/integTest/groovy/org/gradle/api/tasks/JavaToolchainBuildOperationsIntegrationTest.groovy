@@ -26,10 +26,12 @@ import org.gradle.internal.jvm.Jvm
 import org.gradle.internal.jvm.inspection.JvmInstallationMetadata
 import org.gradle.internal.os.OperatingSystem
 import org.gradle.test.fixtures.file.TestFile
+import org.gradle.util.Requires
 import org.gradle.util.internal.TextUtil
 import org.gradle.util.internal.VersionNumber
 import spock.lang.Issue
 
+@Requires(adhoc = { AvailableJavaHomes.differentVersion })
 class JavaToolchainBuildOperationsIntegrationTest extends AbstractIntegrationSpec implements JavaToolchainFixture, JavaToolchainBuildOperationsFixture {
 
     static kgpLatestVersions = new KotlinGradlePluginVersions().latests.toList()

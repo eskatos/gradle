@@ -16,13 +16,14 @@
 
 package org.gradle.jvm.toolchain
 
-
 import org.gradle.integtests.fixtures.AbstractIntegrationSpec
 import org.gradle.integtests.fixtures.AvailableJavaHomes
 import org.gradle.integtests.fixtures.ToBeFixedForConfigurationCache
 import org.gradle.integtests.fixtures.jvm.JavaToolchainFixture
 import org.gradle.internal.jvm.Jvm
+import org.gradle.util.Requires
 
+@Requires(adhoc = { AvailableJavaHomes.differentVersion })
 class JavaToolchainIntegrationTest extends AbstractIntegrationSpec implements JavaToolchainFixture {
 
     def "fails when using an invalid toolchain spec when #description"() {

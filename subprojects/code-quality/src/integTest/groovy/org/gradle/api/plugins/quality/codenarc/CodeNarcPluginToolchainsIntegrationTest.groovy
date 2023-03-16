@@ -24,6 +24,7 @@ import org.gradle.integtests.fixtures.jvm.JavaToolchainFixture
 import org.gradle.internal.jvm.Jvm
 import org.gradle.quality.integtest.fixtures.CodeNarcCoverage
 import org.gradle.test.fixtures.file.TestFile
+import org.gradle.util.Requires
 import org.gradle.util.internal.VersionNumber
 import org.junit.Assume
 
@@ -32,6 +33,7 @@ import org.junit.Assume
  * {@code CodeNarc} tasks behave as expected.
  */
 @TargetCoverage({ CodeNarcCoverage.ALL })
+@Requires(adhoc = { AvailableJavaHomes.differentVersion })
 class CodeNarcPluginToolchainsIntegrationTest extends MultiVersionIntegrationSpec implements JavaToolchainFixture {
 
     def setup() {

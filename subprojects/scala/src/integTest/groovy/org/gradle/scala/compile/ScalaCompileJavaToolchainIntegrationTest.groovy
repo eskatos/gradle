@@ -24,6 +24,7 @@ import org.gradle.integtests.fixtures.TargetCoverage
 import org.gradle.integtests.fixtures.jvm.JavaToolchainFixture
 import org.gradle.internal.jvm.Jvm
 import org.gradle.test.fixtures.file.TestFile
+import org.gradle.util.Requires
 import org.gradle.util.internal.TextUtil
 import org.gradle.util.internal.VersionNumber
 import org.junit.Assume
@@ -31,6 +32,7 @@ import org.junit.Assume
 import static org.gradle.scala.ScalaCompilationFixture.scalaDependency
 
 @TargetCoverage({ ScalaCoverage.DEFAULT })
+@Requires(adhoc = { AvailableJavaHomes.differentVersion })
 class ScalaCompileJavaToolchainIntegrationTest extends MultiVersionIntegrationSpec implements JavaToolchainFixture {
 
     def getTargetJava8() {
